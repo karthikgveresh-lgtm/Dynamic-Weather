@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, useMap, Marker, Popup, Polyline } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -25,21 +25,95 @@ const placeIcon = new L.Icon({
   shadowSize: [41, 41]
 });
 
-const MapUpdater = ({ center, routeCoordinates }) => {
+// Custom animated vehicle marker using a divIcon (emoji car)
+const getCarIcon = (angle) => L.divIcon({
+  html: `<div style="font-size: 26px; transform: rotate(${angle}deg); transform-origin: center; transition: transform 0.15s ease-out; display: inline-block;">🚗</div>`,
+  className: 'car-marker-icon',
+  iconSize: [26, 26],
+  iconAnchor: [13, 13]
+});
+
+// Helper to calculate angle between two coordinates
+const getRotationAngle = (p1, p2) => {
+  if (!p1 || !p2) return 0;
+  const lat1 = p1[0], lon1 = p1[1];
+  const lat2 = p2[0], lon2 = p2[1];
+  const dy = lat2 - lat1;
+  const dx = lon2 - lon1;
+  // atan2 returns radians, convert to degrees
+  const angle = Math.atan2(dx, dy) * (180 / Math.PI);
+  // Emojis usually face left. If car emoji faces left:
+  // Traveling North (dy > 0, dx = 0) -> angle = 0. Car needs to face up. 
+  // We offset by 270 degrees to align the left-facing emoji with direction of travel
+  return angle - 90; 
+};
+
+const MapUpdater = ({ center, routeCoordinates, carPosition }) => {
   const map = useMap();
   useEffect(() => {
-    if (routeCoordinates && routeCoordinates.length > 0) {
+    if (carPosition) {
+      map.panTo(carPosition, { animate: true, duration: 0.2 });
+    } else if (routeCoordinates && routeCoordinates.length > 0) {
       map.fitBounds(routeCoordinates, { padding: [50, 50], animate: true });
     } else if (center) {
-      map.setView(center, 12, { animate: true }); // Zoom in a bit more to see places
+      map.setView(center, 12, { animate: true });
     }
-  }, [center, routeCoordinates, map]);
+  }, [center, routeCoordinates, carPosition, map]);
   return null;
 };
 
-const LiveMap = ({ lat, lon, places = [], routeCoordinates = [] }) => {
+const LiveMap = ({ 
+  lat, 
+  lon, 
+  places = [], 
+  routeCoordinates = [],
+  isNavigating = false,
+  onNavigationProgress,
+  onNavigationComplete
+}) => {
   const defaultCenter = [51.505, -0.09]; // London
   const center = lat && lon ? [lat, lon] : defaultCenter;
+
+  const [stepIndex, setStepIndex] = useState(0);
+  const [carPosition, setCarPosition] = useState(null);
+  const [carAngle, setCarAngle] = useState(0);
+
+  // Animation loop when simulation is active
+  useEffect(() => {
+    if (!isNavigating || routeCoordinates.length === 0) {
+      setStepIndex(0);
+      setCarPosition(null);
+      return;
+    }
+
+    setCarPosition(routeCoordinates[0]);
+    
+    const interval = setInterval(() => {
+      setStepIndex((prevIndex) => {
+        const nextIndex = prevIndex + 1;
+        if (nextIndex >= routeCoordinates.length) {
+          clearInterval(interval);
+          if (onNavigationComplete) onNavigationComplete();
+          return prevIndex;
+        }
+
+        const currentPos = routeCoordinates[prevIndex];
+        const nextPos = routeCoordinates[nextIndex];
+        
+        setCarPosition(nextPos);
+        setCarAngle(getRotationAngle(currentPos, nextPos));
+
+        // Report progress to parent
+        if (onNavigationProgress) {
+          onNavigationProgress(nextIndex / routeCoordinates.length);
+        }
+
+        return nextIndex;
+      });
+    }, 250); // move car every 250ms
+
+    return () => clearInterval(interval);
+  }, [isNavigating, routeCoordinates, onNavigationProgress, onNavigationComplete]);
 
   return (
     <div className="glass-panel" style={{ height: '100%', padding: '1rem', minHeight: '400px' }}>
@@ -50,10 +124,10 @@ const LiveMap = ({ lat, lon, places = [], routeCoordinates = [] }) => {
           url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
         />
 
-        <MapUpdater center={center} routeCoordinates={routeCoordinates} />
+        <MapUpdater center={center} routeCoordinates={routeCoordinates} carPosition={carPosition} />
         
-        {/* Main City Marker */}
-        {lat && lon && (
+        {/* Main City Marker (Hide during active simulation to avoid crowding) */}
+        {lat && lon && !isNavigating && (
           <Marker position={center}>
             <Popup>Current Location</Popup>
           </Marker>
@@ -88,6 +162,11 @@ const LiveMap = ({ lat, lon, places = [], routeCoordinates = [] }) => {
             weight={5} 
             opacity={0.85} 
           />
+        )}
+
+        {/* Simulated Car Marker */}
+        {isNavigating && carPosition && (
+          <Marker position={carPosition} icon={getCarIcon(carAngle)} />
         )}
       </MapContainer>
     </div>
