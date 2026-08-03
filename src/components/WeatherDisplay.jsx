@@ -1,6 +1,7 @@
 import React from 'react';
 import { Droplets, Wind, Thermometer, Cloud, Sun, Moon, CloudFog, CloudRain, CloudSnow, CloudLightning } from 'lucide-react';
 import { getWeatherDescription, getWeatherIconName } from '../services/weatherApi';
+import ForecastChart from './ForecastChart';
 
 const IconComponent = ({ name, size, color }) => {
   const icons = {
@@ -21,7 +22,7 @@ const WeatherDisplay = ({ weather }) => {
     );
   }
 
-  const { location, current, daily } = weather;
+  const { location, current, daily, hourly } = weather;
   const description = getWeatherDescription(current.weather_code);
   const iconName = getWeatherIconName(current.weather_code, current.is_day);
 
@@ -96,6 +97,8 @@ const WeatherDisplay = ({ weather }) => {
           </div>
         </div>
       )}
+
+      {hourly && <ForecastChart hourly={hourly} />}
     </div>
   );
 };

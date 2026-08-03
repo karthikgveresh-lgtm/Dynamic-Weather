@@ -39,6 +39,7 @@ export const fetchWeatherData = async (city) => {
         longitude,
         current: 'temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,wind_speed_10m',
         daily: 'weather_code,temperature_2m_max,temperature_2m_min',
+        hourly: 'temperature_2m,relative_humidity_2m',
         timezone: 'auto',
       },
     });
@@ -47,6 +48,7 @@ export const fetchWeatherData = async (city) => {
       location: { name, country, lat: latitude, lon: longitude },
       current: weatherResponse.data.current,
       daily: weatherResponse.data.daily,
+      hourly: weatherResponse.data.hourly,
     };
   } catch (error) {
     throw new Error(error.message || "Failed to fetch weather data");

@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { MapContainer, TileLayer, useMap, Marker, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, useMap, Marker, Popup, Polyline } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
@@ -25,17 +25,19 @@ const placeIcon = new L.Icon({
   shadowSize: [41, 41]
 });
 
-const MapUpdater = ({ center }) => {
+const MapUpdater = ({ center, routeCoordinates }) => {
   const map = useMap();
   useEffect(() => {
-    if (center) {
+    if (routeCoordinates && routeCoordinates.length > 0) {
+      map.fitBounds(routeCoordinates, { padding: [50, 50], animate: true });
+    } else if (center) {
       map.setView(center, 12, { animate: true }); // Zoom in a bit more to see places
     }
-  }, [center, map]);
+  }, [center, routeCoordinates, map]);
   return null;
 };
 
-const LiveMap = ({ lat, lon, places = [] }) => {
+const LiveMap = ({ lat, lon, places = [], routeCoordinates = [] }) => {
   const defaultCenter = [51.505, -0.09]; // London
   const center = lat && lon ? [lat, lon] : defaultCenter;
 
@@ -48,7 +50,7 @@ const LiveMap = ({ lat, lon, places = [] }) => {
           url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
         />
 
-        <MapUpdater center={center} />
+        <MapUpdater center={center} routeCoordinates={routeCoordinates} />
         
         {/* Main City Marker */}
         {lat && lon && (
@@ -63,16 +65,30 @@ const LiveMap = ({ lat, lon, places = [] }) => {
             <Marker key={place.id} position={[place.lat, place.lon]} icon={placeIcon}>
               <Popup>
                 <div style={{ textAlign: 'center' }}>
-                  <img src={place.thumbnail} alt={place.title} style={{ width: '100px', borderRadius: '4px', marginBottom: '4px' }} />
+                  {place.thumbnail && (
+                    <img src={place.thumbnail} alt={place.title} style={{ width: '100px', borderRadius: '4px', marginBottom: '4px' }} />
+                  )}
                   <br />
                   <strong>{place.title}</strong>
                   <br />
-                  <a href={place.url} target="_blank" rel="noopener noreferrer">View on Wikipedia</a>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--color-accent)' }}>{place.distance} km away</span>
+                  <br />
+                  <a href={place.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.8rem' }}>View Details</a>
                 </div>
               </Popup>
             </Marker>
           ) : null
         ))}
+
+        {/* Selected Route Polyline */}
+        {routeCoordinates && routeCoordinates.length > 0 && (
+          <Polyline 
+            positions={routeCoordinates} 
+            color="var(--color-accent)" 
+            weight={5} 
+            opacity={0.85} 
+          />
+        )}
       </MapContainer>
     </div>
   );

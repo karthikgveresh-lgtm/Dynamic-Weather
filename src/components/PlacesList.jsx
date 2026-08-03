@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { MapPin, Filter, Landmark, Trees, Church, Telescope, Palette, History } from 'lucide-react';
+import { MapPin, Filter, Landmark, Trees, Church, Telescope, Palette, History, Bookmark, BookmarkCheck } from 'lucide-react';
 
 // Pick a nice icon based on category
 const CategoryIcon = ({ category }) => {
   const cat = category?.toLowerCase() || '';
-  const size = 40;
+  const size = 32;
   const color = 'var(--color-accent)';
   if (cat.includes('temple') || cat.includes('mosque') || cat.includes('church') || cat.includes('religious')) return <Church size={size} color={color} />;
   if (cat.includes('nature') || cat.includes('park') || cat.includes('forest') || cat.includes('zoo')) return <Trees size={size} color={color} />;
@@ -14,7 +14,14 @@ const CategoryIcon = ({ category }) => {
   return <Landmark size={size} color={color} />;
 };
 
-const PlacesList = ({ places, onFilteredPlaces }) => {
+const PlacesList = ({ 
+  places, 
+  onFilteredPlaces, 
+  savedPlacesIds = [], 
+  onToggleSavePlace, 
+  onSelectPlace,
+  activeRoutePlaceId
+}) => {
   const [maxDistance, setMaxDistance] = useState(10);
   const [selectedCategory, setSelectedCategory] = useState('All');
 
@@ -90,92 +97,121 @@ const PlacesList = ({ places, onFilteredPlaces }) => {
         </div>
       ) : (
         <div className="flex gap-6" style={{ overflowX: 'auto', paddingBottom: '1rem', scrollbarWidth: 'thin' }}>
-          {filteredPlaces.map((place) => (
-            <a
-              href={place.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              key={place.id}
-              style={{
-                minWidth: '240px',
-                maxWidth: '240px',
-                textDecoration: 'none',
-                color: 'inherit',
-                borderRadius: '1rem',
-                overflow: 'hidden',
-                background: 'rgba(255, 255, 255, 0.05)',
-                border: '1px solid rgba(255,255,255,0.08)',
-                transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-                display: 'flex',
-                flexDirection: 'column',
-                position: 'relative',
-              }}
-              onMouseOver={(e) => {
-                e.currentTarget.style.transform = 'translateY(-5px)';
-                e.currentTarget.style.boxShadow = '0 10px 25px rgba(0,0,0,0.4)';
-              }}
-              onMouseOut={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = 'none';
-              }}
-            >
-              {/* Distance badge */}
-              <div style={{
-                position: 'absolute', top: '10px', right: '10px', zIndex: 1,
-                background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)',
-                padding: '3px 8px', borderRadius: '1rem', fontSize: '0.8rem', fontWeight: 'bold',
-              }}>
-                {place.distance} km
-              </div>
+          {filteredPlaces.map((place) => {
+            const isSaved = savedPlacesIds.includes(place.id);
+            const isRouted = activeRoutePlaceId === place.id;
+            
+            return (
+              <div
+                key={place.id}
+                style={{
+                  minWidth: '240px',
+                  maxWidth: '240px',
+                  borderRadius: '1rem',
+                  overflow: 'hidden',
+                  background: isRouted ? 'rgba(99, 102, 241, 0.08)' : 'rgba(255, 255, 255, 0.05)',
+                  border: isRouted ? '1px solid rgba(99, 102, 241, 0.4)' : '1px solid rgba(255, 255, 255, 0.08)',
+                  transition: 'transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  position: 'relative',
+                  cursor: 'pointer'
+                }}
+                onClick={() => onSelectPlace && onSelectPlace(place)}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-5px)';
+                  e.currentTarget.style.boxShadow = '0 10px 25px rgba(0,0,0,0.4)';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
+              >
+                {/* Distance badge */}
+                <div style={{
+                  position: 'absolute', top: '10px', right: '10px', zIndex: 1,
+                  background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)',
+                  padding: '3px 8px', borderRadius: '1rem', fontSize: '0.8rem', fontWeight: 'bold',
+                }}>
+                  {place.distance} km
+                </div>
 
-              {/* Thumbnail or icon fallback */}
-              <div style={{
-                height: '150px', overflow: 'hidden',
-                background: 'linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.15))',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-              }}>
-                {place.thumbnail ? (
-                  <img
-                    src={place.thumbnail}
-                    alt={place.title}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                    onError={(e) => {
-                      e.target.style.display = 'none';
-                      e.target.parentNode.classList.add('show-fallback');
-                      const fallback = e.target.parentNode.querySelector('.icon-fallback');
-                      if (fallback) fallback.style.display = 'flex';
-                    }}
-                  />
-                ) : null}
-                <div
-                  className="icon-fallback"
-                  style={{
-                    display: place.thumbnail ? 'none' : 'flex',
-                    flexDirection: 'column', alignItems: 'center', gap: '0.5rem',
-                    color: 'var(--color-text-secondary)',
+                {/* Save/Bookmark Button */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation(); // Avoid selecting/routing when clicking save
+                    if (onToggleSavePlace) onToggleSavePlace(place);
                   }}
+                  style={{
+                    position: 'absolute', top: '10px', left: '10px', zIndex: 2,
+                    background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
+                    border: 'none', padding: '0.4rem', borderRadius: '50%',
+                    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: isSaved ? 'var(--color-accent)' : 'rgba(255,255,255,0.7)',
+                    transition: 'transform 0.2s, color 0.2s'
+                  }}
+                  onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
+                  onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                  title={isSaved ? "Saved to Planner" : "Save to Planner"}
                 >
-                  <CategoryIcon category={place.category} />
-                  <span style={{ fontSize: '0.75rem', opacity: 0.7 }}>No Image</span>
-                </div>
-              </div>
+                  {isSaved ? <BookmarkCheck size={16} color="var(--color-accent)" /> : <Bookmark size={16} />}
+                </button>
 
-              {/* Info */}
-              <div style={{ padding: '0.85rem', flexGrow: 1, display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                <div style={{ fontSize: '0.75rem', color: 'var(--color-accent)', fontWeight: '700', letterSpacing: '0.05em' }}>
-                  {place.category.toUpperCase()}
+                {/* Thumbnail or icon fallback */}
+                <div style={{
+                  height: '150px', overflow: 'hidden',
+                  background: 'linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.15))',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                }}>
+                  {place.thumbnail ? (
+                    <img
+                      src={place.thumbnail}
+                      alt={place.title}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                        const fallback = e.target.parentNode.querySelector('.icon-fallback');
+                        if (fallback) fallback.style.display = 'flex';
+                      }}
+                    />
+                  ) : null}
+                  <div
+                    className="icon-fallback"
+                    style={{
+                      display: place.thumbnail ? 'none' : 'flex',
+                      flexDirection: 'column', alignItems: 'center', gap: '0.5rem',
+                      color: 'var(--color-text-secondary)',
+                    }}
+                  >
+                    <CategoryIcon category={place.category} />
+                    <span style={{ fontSize: '0.75rem', opacity: 0.7 }}>No Image</span>
+                  </div>
                 </div>
-                <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: '600', lineHeight: 1.3 }}>
-                  {place.title}
-                </h4>
-                {place.summary && (
-                  <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--color-text-secondary)', lineHeight: 1.4 }}>
-                    {place.summary}
-                  </p>
-                )}
+
+                {/* Info */}
+                <div style={{ padding: '0.85rem', flexGrow: 1, display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                  <div className="flex justify-between items-center" style={{ width: '100%' }}>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--color-accent)', fontWeight: '700', letterSpacing: '0.05em' }}>
+                      {place.category.toUpperCase()}
+                    </span>
+                    {isRouted && (
+                      <span style={{ fontSize: '0.7rem', color: '#10b981', fontWeight: 600 }}>
+                        Active Route
+                      </span>
+                    )}
+                  </div>
+                  <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: '600', lineHeight: 1.3 }}>
+                    {place.title}
+                  </h4>
+                  {place.summary && (
+                    <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--color-text-secondary)', lineHeight: 1.4 }}>
+                      {place.summary}
+                    </p>
+                  )}
+                </div>
               </div>
-            </a>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
