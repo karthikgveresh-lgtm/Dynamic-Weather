@@ -1,39 +1,21 @@
 import React, { useState } from 'react';
-import { Search, Navigation } from 'lucide-react';
+import { Search } from 'lucide-react';
 
-const SearchBar = ({ onSearch, onLocationSearch }) => {
+const SearchBar = ({ onSearch, initialShowButton = true }) => {
   const [city, setCity] = useState('');
-  const [geoLoading, setGeoLoading] = useState(false);
+  const [showSearchBtn, setShowSearchBtn] = useState(initialShowButton);
 
   const handleSubmit = (e) => {
     e.preventDefault();
     if (city.trim()) {
       onSearch(city.trim());
       setCity('');
+      setShowSearchBtn(false); // Hide the search button after searching
     }
   };
 
-  const handleUseLocation = () => {
-    if (navigator.geolocation) {
-      setGeoLoading(true);
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          const { latitude, longitude } = position.coords;
-          if (onLocationSearch) {
-            await onLocationSearch(latitude, longitude);
-          }
-          setGeoLoading(false);
-        },
-        (error) => {
-          console.error(error);
-          alert("Error getting location. Please ensure location permissions are enabled.");
-          setGeoLoading(false);
-        },
-        { enableHighAccuracy: true, timeout: 10000 }
-      );
-    } else {
-      alert("Geolocation is not supported by this browser.");
-    }
+  const handleFocus = () => {
+    setShowSearchBtn(true); // Show the search button when the search bar is pressed/focused
   };
 
   return (
@@ -45,29 +27,19 @@ const SearchBar = ({ onSearch, onLocationSearch }) => {
             placeholder="Search for a city..."
             value={city}
             onChange={(e) => setCity(e.target.value)}
+            onFocus={handleFocus}
           />
         </div>
-        <button type="submit" className="primary-btn">
-          <Search size={18} />
-          <span>Search</span>
-        </button>
-        <button
-          type="button"
-          onClick={handleUseLocation}
-          className="glass-panel flex items-center justify-center"
-          style={{
-            padding: '0.75rem',
-            borderRadius: '0.75rem',
-            border: '1px solid rgba(255,255,255,0.1)',
-            cursor: 'pointer',
-            background: geoLoading ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.05)',
-            transition: 'background 0.2s',
-          }}
-          disabled={geoLoading}
-          title="Use my current location"
-        >
-          <Navigation size={18} className={geoLoading ? "animate-pulse" : ""} color="var(--color-accent)" />
-        </button>
+        {showSearchBtn && (
+          <button 
+            type="submit" 
+            className="primary-btn animate-fade-in"
+            style={{ animationDuration: '0.2s' }}
+          >
+            <Search size={18} />
+            <span>Search</span>
+          </button>
+        )}
       </form>
     </div>
   );
