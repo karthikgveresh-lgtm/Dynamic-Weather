@@ -270,7 +270,7 @@ const LandingPage = ({ onSearch, onLocationSearch }) => {
 
             {/* Glassmorphic Search Bar Panel */}
             <div className="glass-panel" style={{ padding: '1.25rem', borderRadius: 'var(--radius-xl)', border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(15,23,42,0.4)', backdropFilter: 'blur(20px)' }}>
-              <SearchBar onSearch={onSearch} onLocationSearch={onLocationSearch} />
+              <SearchBar onSearch={onSearch} initialShowButton={true} />
               
               {/* Quick Jump Badges */}
               <div className="flex gap-2 items-center flex-wrap" style={{ marginTop: '1.25rem' }}>

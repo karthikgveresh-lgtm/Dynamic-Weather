@@ -257,7 +257,7 @@ function App() {
               
               {/* Search controls & Geotracking settings */}
               <div className="flex gap-4 items-center justify-center w-full" style={{ maxWidth: '600px', margin: '0 auto' }}>
-                <SearchBar onSearch={handleSearch} onLocationSearch={handleLocationSearch} />
+                <SearchBar onSearch={handleSearch} initialShowButton={false} />
                 
                 <button
                   type="button"
