@@ -6,10 +6,11 @@ import LiveMap from './components/LiveMap';
 import PlacesList from './components/PlacesList';
 import TravelIndex from './components/TravelIndex';
 import TripPlanner from './components/TripPlanner';
+import LandingPage from './components/LandingPage';
 import { fetchWeatherData, getWeatherDescription } from './services/weatherApi';
 import { fetchNearbyPlaces } from './services/placesApi';
 import { calculateRoute } from './services/routingApi';
-import { Eye, EyeOff, Play, Square } from 'lucide-react';
+import { Eye, EyeOff, Play, Square, Home } from 'lucide-react';
 
 function App() {
   const [weatherData, setWeatherData] = useState(null);
@@ -25,6 +26,7 @@ function App() {
   const [isTracking, setIsTracking] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [currentView, setCurrentView] = useState('landing');
 
   // Sync saved places with LocalStorage
   useEffect(() => {
@@ -94,6 +96,7 @@ function App() {
     try {
       const data = await fetchWeatherData(city);
       setWeatherData(data);
+      setCurrentView('dashboard');
       
       // Fetch nearby places using TomTom API
       const places = await fetchNearbyPlaces(data.location.lat, data.location.lon);
@@ -104,6 +107,7 @@ function App() {
       setWeatherData(null);
       setPlacesData([]);
       setFilteredPlaces([]);
+      setCurrentView('landing');
     } finally {
       setLoading(false);
     }
@@ -111,6 +115,7 @@ function App() {
 
   const handleLocationSearch = async (lat, lon) => {
     setError('');
+    setLoading(true);
     try {
       const key = import.meta.env.VITE_TOMTOM_API_KEY;
       const res = await axios.get(`https://api.tomtom.com/search/2/reverseGeocode/${lat},${lon}.json?key=${key}`);
@@ -121,13 +126,22 @@ function App() {
       // Call standard weather fetch
       const data = await fetchWeatherData(city);
       setWeatherData(data);
+      setCurrentView('dashboard');
 
       const places = await fetchNearbyPlaces(lat, lon);
       setPlacesData(places);
       setFilteredPlaces(places);
     } catch (err) {
       setError('Failed to detect city name from your location.');
+    } finally {
+      setLoading(false);
     }
+  };
+
+  const handleBackToLanding = () => {
+    setWeatherData(null);
+    setCurrentView('landing');
+    setError('');
   };
 
   const handleToggleSavePlace = (place) => {
@@ -180,159 +194,209 @@ function App() {
     : 0;
 
   return (
-    <div className="app-container" style={{ display: 'flex', flexDirection: 'column', gap: '2rem', paddingBottom: '3rem' }}>
-      <header className="flex flex-col items-center justify-center gap-6" style={{ marginTop: '2rem' }}>
-        <h1 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
-          <span style={{ color: 'var(--color-accent)' }}>Dynamic</span>Weather
-        </h1>
-        
-        {/* Search controls & Geotracking settings */}
-        <div className="flex gap-4 items-center justify-center w-full" style={{ maxWidth: '600px', margin: '0 auto' }}>
-          <SearchBar onSearch={handleSearch} onLocationSearch={handleLocationSearch} />
-          
-          <button
-            type="button"
-            onClick={() => setIsTracking(prev => !prev)}
-            className="glass-panel flex items-center justify-center gap-2"
-            style={{
-              padding: '0.75rem 1rem',
-              borderRadius: '0.75rem',
-              border: isTracking ? '1px solid rgba(16,185,129,0.4)' : '1px solid rgba(255,255,255,0.1)',
-              cursor: 'pointer',
-              background: isTracking ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.05)',
-              transition: 'all 0.2s',
-              whiteSpace: 'nowrap'
-            }}
-            title={isTracking ? "Disable live tracking" : "Enable live tracking"}
-          >
-            {isTracking ? <Eye size={18} color="#10b981" className="animate-pulse" /> : <EyeOff size={18} />}
-            <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{isTracking ? 'Tracking' : 'Track Me'}</span>
-          </button>
+    <div style={{ position: 'relative', minHeight: '100vh', width: '100%' }}>
+      {/* 3D Loading Overlay */}
+      {loading && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+          background: 'rgba(15, 23, 42, 0.7)',
+          backdropFilter: 'blur(15px)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 9999
+        }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.5rem' }}>
+            <div className="spinner" style={{ width: '60px', height: '60px', borderWidth: '5px' }}></div>
+            <p style={{ color: 'var(--color-accent)', fontWeight: 600, fontSize: '1.2rem', margin: 0, letterSpacing: '0.05em' }}>
+              Syncing Weather Models...
+            </p>
+          </div>
         </div>
-        
-        {error && <div style={{ color: '#ef4444', background: 'rgba(239, 68, 68, 0.1)', padding: '0.5rem 1rem', borderRadius: '0.5rem' }}>{error}</div>}
-      </header>
+      )}
 
-      {loading ? (
-        <div className="flex justify-center items-center" style={{ flexGrow: 1, minHeight: '300px' }}>
-          <div className="spinner"></div>
-        </div>
+      {currentView === 'landing' ? (
+        <LandingPage onSearch={handleSearch} onLocationSearch={handleLocationSearch} />
       ) : (
         weatherData && (
-          <div className="flex flex-col gap-6" style={{ flexGrow: 1 }}>
-            {/* Main Premium Dashboard Layout */}
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-              gap: '2rem',
-              alignItems: 'start'
-            }}>
-              {/* Column 1: Weather Details & Charts */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-                <WeatherDisplay weather={weatherData} />
+          <div className="app-container" style={{ display: 'flex', flexDirection: 'column', gap: '2rem', paddingBottom: '3rem' }}>
+            <header className="flex flex-col items-center justify-center gap-6" style={{ marginTop: '2rem' }}>
+              <div className="flex justify-between items-center w-full">
+                <h1 
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0, cursor: 'pointer' }}
+                  onClick={handleBackToLanding}
+                  title="Back to Landing Page"
+                >
+                  <span style={{ color: 'var(--color-accent)' }}>Dynamic</span>Weather
+                </h1>
+
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={handleBackToLanding}
+                    className="glass-panel flex items-center justify-center gap-2"
+                    style={{
+                      padding: '0.6rem 1.25rem',
+                      borderRadius: '0.75rem',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      cursor: 'pointer',
+                      background: 'rgba(255,255,255,0.05)',
+                      transition: 'all 0.2s',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    <Home size={16} />
+                    <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Home</span>
+                  </button>
+                </div>
+              </div>
+              
+              {/* Search controls & Geotracking settings */}
+              <div className="flex gap-4 items-center justify-center w-full" style={{ maxWidth: '600px', margin: '0 auto' }}>
+                <SearchBar onSearch={handleSearch} onLocationSearch={handleLocationSearch} />
+                
+                <button
+                  type="button"
+                  onClick={() => setIsTracking(prev => !prev)}
+                  className="glass-panel flex items-center justify-center gap-2"
+                  style={{
+                    padding: '0.75rem 1rem',
+                    borderRadius: '0.75rem',
+                    border: isTracking ? '1px solid rgba(16,185,129,0.4)' : '1px solid rgba(255,255,255,0.1)',
+                    cursor: 'pointer',
+                    background: isTracking ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.05)',
+                    transition: 'all 0.2s',
+                    whiteSpace: 'nowrap'
+                  }}
+                  title={isTracking ? "Disable live tracking" : "Enable live tracking"}
+                >
+                  {isTracking ? <Eye size={18} color="#10b981" className="animate-pulse" /> : <EyeOff size={18} />}
+                  <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{isTracking ? 'Tracking' : 'Track Me'}</span>
+                </button>
+              </div>
+              
+              {error && <div style={{ color: '#ef4444', background: 'rgba(239, 68, 68, 0.1)', padding: '0.5rem 1rem', borderRadius: '0.5rem' }}>{error}</div>}
+            </header>
+
+            <div className="flex flex-col gap-6" style={{ flexGrow: 1 }}>
+              {/* Main Premium Dashboard Layout */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+                gap: '2rem',
+                alignItems: 'start'
+              }}>
+                {/* Column 1: Weather Details & Charts */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                  <WeatherDisplay weather={weatherData} />
+                </div>
+
+                {/* Column 2: Live Map & Selected Route summary */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', height: '100%' }}>
+                  <div style={{ flexGrow: 1 }}>
+                    <LiveMap 
+                      lat={weatherData.location.lat} 
+                      lon={weatherData.location.lon} 
+                      places={filteredPlaces} 
+                      routeCoordinates={activeRoute?.polyline || []}
+                      isNavigating={isNavigating}
+                      onNavigationProgress={setNavProgress}
+                      onNavigationComplete={() => {
+                        setIsNavigating(false);
+                        setNavProgress(0);
+                      }}
+                    />
+                  </div>
+                  
+                  {activeRoute && (
+                    <div className="glass-panel animate-fade-in flex flex-col gap-3" style={{ padding: '1rem', border: '1px solid rgba(99, 102, 241, 0.3)' }}>
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <h4 style={{ margin: 0, fontSize: '0.95rem' }}>
+                            {isNavigating ? 'Simulating Route...' : 'Directions Calculated'}
+                          </h4>
+                          <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>
+                            {isNavigating ? 'Driving to destination' : 'Click start to preview the journey'}
+                          </p>
+                        </div>
+                        
+                        {/* Simulation Triggers */}
+                        <button
+                          onClick={() => {
+                            if (isNavigating) {
+                              setIsNavigating(false);
+                              setNavProgress(0);
+                            } else {
+                              setIsNavigating(true);
+                            }
+                          }}
+                          className="flex items-center gap-2"
+                          style={{
+                            background: isNavigating ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)',
+                            border: isNavigating ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid rgba(16, 185, 129, 0.4)',
+                            color: isNavigating ? '#ef4444' : '#10b981',
+                            padding: '0.4rem 0.8rem',
+                            borderRadius: '0.5rem',
+                            cursor: 'pointer',
+                            fontWeight: 600,
+                            fontSize: '0.8rem'
+                          }}
+                        >
+                          {isNavigating ? <Square size={14} /> : <Play size={14} />}
+                          <span>{isNavigating ? 'Stop' : 'Start'}</span>
+                        </button>
+                      </div>
+
+                      <div className="flex justify-between items-center" style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '0.75rem' }}>
+                        <div style={{ display: 'flex', gap: '1.5rem' }}>
+                          <div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>Remaining Distance</div>
+                            <div style={{ fontWeight: '600', color: 'var(--color-accent)' }}>{remainingDistance} km</div>
+                          </div>
+                          <div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>Est. Duration</div>
+                            <div style={{ fontWeight: '600', color: 'var(--color-accent)' }}>{remainingDuration} mins</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <TravelIndex weather={weatherData} />
+                </div>
               </div>
 
-              {/* Column 2: Live Map & Selected Route summary */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', height: '100%' }}>
-                <div style={{ flexGrow: 1 }}>
-                  <LiveMap 
-                    lat={weatherData.location.lat} 
-                    lon={weatherData.location.lon} 
-                    places={filteredPlaces} 
-                    routeCoordinates={activeRoute?.polyline || []}
-                    isNavigating={isNavigating}
-                    onNavigationProgress={setNavProgress}
-                    onNavigationComplete={() => {
-                      setIsNavigating(false);
-                      setNavProgress(0);
-                    }}
+              {/* Places Grid and Trip Planner panel */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: '3fr 1fr',
+                gap: '2rem',
+                alignItems: 'start',
+                marginTop: '1rem'
+              }}
+              className="planner-grid"
+              >
+                <div>
+                  <PlacesList 
+                    places={placesData} 
+                    onFilteredPlaces={setFilteredPlaces} 
+                    savedPlacesIds={savedPlaces.map(p => p.id)}
+                    onToggleSavePlace={handleToggleSavePlace}
+                    onSelectPlace={handleSelectPlace}
+                    activeRoutePlaceId={activeRoute?.placeId}
                   />
                 </div>
-                
-                {activeRoute && (
-                  <div className="glass-panel animate-fade-in flex flex-col gap-3" style={{ padding: '1rem', border: '1px solid rgba(99, 102, 241, 0.3)' }}>
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <h4 style={{ margin: 0, fontSize: '0.95rem' }}>
-                          {isNavigating ? 'Simulating Route...' : 'Directions Calculated'}
-                        </h4>
-                        <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>
-                          {isNavigating ? 'Driving to destination' : 'Click start to preview the journey'}
-                        </p>
-                      </div>
-                      
-                      {/* Simulation Triggers */}
-                      <button
-                        onClick={() => {
-                          if (isNavigating) {
-                            setIsNavigating(false);
-                            setNavProgress(0);
-                          } else {
-                            setIsNavigating(true);
-                          }
-                        }}
-                        className="flex items-center gap-2"
-                        style={{
-                          background: isNavigating ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)',
-                          border: isNavigating ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid rgba(16, 185, 129, 0.4)',
-                          color: isNavigating ? '#ef4444' : '#10b981',
-                          padding: '0.4rem 0.8rem',
-                          borderRadius: '0.5rem',
-                          cursor: 'pointer',
-                          fontWeight: 600,
-                          fontSize: '0.8rem'
-                        }}
-                      >
-                        {isNavigating ? <Square size={14} /> : <Play size={14} />}
-                        <span>{isNavigating ? 'Stop' : 'Start'}</span>
-                      </button>
-                    </div>
-
-                    <div className="flex justify-between items-center" style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '0.75rem' }}>
-                      <div style={{ display: 'flex', gap: '1.5rem' }}>
-                        <div>
-                          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>Remaining Distance</div>
-                          <div style={{ fontWeight: '600', color: 'var(--color-accent)' }}>{remainingDistance} km</div>
-                        </div>
-                        <div>
-                          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>Est. Duration</div>
-                          <div style={{ fontWeight: '600', color: 'var(--color-accent)' }}>{remainingDuration} mins</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                <TravelIndex weather={weatherData} />
-              </div>
-            </div>
-
-            {/* Places Grid and Trip Planner panel */}
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: '3fr 1fr',
-              gap: '2rem',
-              alignItems: 'start',
-              marginTop: '1rem'
-            }}
-            className="planner-grid"
-            >
-              <div>
-                <PlacesList 
-                  places={placesData} 
-                  onFilteredPlaces={setFilteredPlaces} 
-                  savedPlacesIds={savedPlaces.map(p => p.id)}
-                  onToggleSavePlace={handleToggleSavePlace}
-                  onSelectPlace={handleSelectPlace}
-                  activeRoutePlaceId={activeRoute?.placeId}
-                />
-              </div>
-              <div>
-                <TripPlanner 
-                  savedPlaces={savedPlaces} 
-                  onRemovePlace={handleRemoveSavedPlace}
-                  onSelectPlace={handleSelectPlace}
-                />
+                <div>
+                  <TripPlanner 
+                    savedPlaces={savedPlaces} 
+                    onRemovePlace={handleRemoveSavedPlace}
+                    onSelectPlace={handleSelectPlace}
+                  />
+                </div>
               </div>
             </div>
           </div>
